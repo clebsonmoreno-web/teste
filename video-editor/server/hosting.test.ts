@@ -40,7 +40,7 @@ test('disco persistente mantém os arquivos e nunca substitui uploads existentes
 test('Codespaces aceita a origem externa e o loopback do proxy sem liberar outros sites ou portas',()=>{
  const config=accessConfig({APP_ORIGIN:'https://my-editor-5173.app.github.dev'});
  const env={CODESPACES:'true',PORT:'5173'};
- for(const origin of [config.origin,'http://localhost:5173','http://127.0.0.1:5173',undefined])assert.equal(isAllowedOrigin(origin,config,'http://localhost:5173',env),true);
- for(const origin of ['https://evil.invalid','https://other-editor-5173.app.github.dev','http://localhost:5000','null'])assert.equal(isAllowedOrigin(origin,config,'http://localhost:5173',env),false);
+ for(const origin of [config.origin,'http://my-editor-5173.app.github.dev','http://localhost:5173','http://127.0.0.1:5173','https://localhost:5173','https://127.0.0.1:5173','https://[::1]:5173',undefined])assert.equal(isAllowedOrigin(origin,config,'http://localhost:5173',env),true);
+ for(const origin of ['https://evil.invalid','https://other-editor-5173.app.github.dev','http://localhost:5000','https://localhost:5000','https://localhost:5173.evil.invalid','null'])assert.equal(isAllowedOrigin(origin,config,'http://localhost:5173',env),false);
  assert.equal(isAllowedOrigin('http://localhost:5173',config,'http://localhost:5173',{}),false);
 });

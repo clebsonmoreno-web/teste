@@ -18,10 +18,12 @@ export function isAllowedOrigin(received:string|undefined,config:ReturnType<type
  if(!received)return true;
  const allowed=new Set([config.origin||localOrigin]);
  if(env.CODESPACES==='true'){
+  if(config.origin){const tunnel=new URL(config.origin);tunnel.protocol='http:';allowed.add(tunnel.origin);}
   const port=env.PORT||'5173';
   if(/^\d+$/.test(port)){
-   allowed.add(`http://localhost:${port}`);
-   allowed.add(`http://127.0.0.1:${port}`);
+   for(const protocol of ['http','https']){
+    for(const host of ['localhost','127.0.0.1','[::1]'])allowed.add(`${protocol}://${host}:${port}`);
+   }
   }
  }
  return allowed.has(received);

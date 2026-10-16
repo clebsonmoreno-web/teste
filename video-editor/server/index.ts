@@ -32,7 +32,7 @@ const waveform=(file:string,duration:number,offset:number)=>new Promise<number[]
 });
 const app=express();app.disable('x-powered-by');
 app.use(protectEditor(hosting));
-app.use('/api',(req,res,next)=>{if(!isAllowedOrigin(req.headers.origin,hosting,`${req.protocol}://${req.headers.host}`)){res.status(403).json({error:'Origem não permitida'});return;}next();});
+app.use('/api',(req,res,next)=>{if(!isAllowedOrigin(req.headers.origin,hosting,`${req.protocol}://${req.headers.host}`)){res.status(403).json({error:`Origem não permitida. Recebida: ${String(req.headers.origin).slice(0,200)}. Esperada: ${hosting.origin||`${req.protocol}://${req.headers.host}`}.`});return;}next();});
 app.use(express.json({limit:'2mb'}));
 app.get('/api/health',(_req,res)=>res.json({ok:true}));
 app.get('/api/projects',(_req,res)=>res.json(readdirSync(`${store}/projects`).filter(f=>f.endsWith('.json')).map(f=>{const r:RecordData=JSON.parse(readFileSync(`${store}/projects/${f}`,'utf8'));return {id:r.id,name:r.name,client:r.project.client};})));

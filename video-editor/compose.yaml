@@ -1,0 +1,16 @@
+services:
+  editor:
+    build: .
+    ports:
+      - "127.0.0.1:5173:5173"
+    environment:
+      AUTH_REQUIRED: "true"
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?Defina BASIC_AUTH_USER}
+      BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:?Defina BASIC_AUTH_PASSWORD}
+      APP_ORIGIN: http://localhost:5173
+    volumes:
+      - editor-data:/data
+    shm_size: 512mb
+    init: true
+volumes:
+  editor-data:

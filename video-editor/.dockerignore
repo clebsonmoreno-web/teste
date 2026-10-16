@@ -1,0 +1,13 @@
+.git
+.git/**
+node_modules
+work
+out
+web-dist
+.env
+.env.*
+!.env.example
+*.log
+**/.DS_Store
+public/originals/**
+!public/originals/.gitkeep

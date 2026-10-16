@@ -1,0 +1,26 @@
+# PREPARAÇÃO SOMENTE: criar este serviço no Render tem custo.
+# Plano 1 CPU/2 GB + disco 10 GB; confirme o preço no painel antes de criar.
+services:
+  - type: web
+    name: frame-video-editor-test
+    runtime: docker
+    repo: https://github.com/clebsonmoreno-web/teste
+    branch: feat/video-editor
+    dockerContext: ./video-editor
+    dockerfilePath: ./video-editor/Dockerfile
+    plan: 1c-2g
+    region: virginia
+    numInstances: 1
+    autoDeployTrigger: "off"
+    healthCheckPath: /api/health
+    disk:
+      name: editor-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: AUTH_REQUIRED
+        value: "true"
+      - key: BASIC_AUTH_USER
+        sync: false
+      - key: BASIC_AUTH_PASSWORD
+        sync: false

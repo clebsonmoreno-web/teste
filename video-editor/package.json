@@ -12,23 +12,33 @@
     "import": "node --import tsx scripts/import.ts",
     "render": "node --import tsx scripts/render.ts",
     "demo": "node --import tsx scripts/demo.ts",
-    "test": "node --import tsx --test scripts/*.test.ts"
+    "test": "node --import tsx --test scripts/*.test.ts",
+    "dev": "node --import tsx server/index.ts",
+    "build:web": "vite build",
+    "start": "NODE_ENV=production node --import tsx server/index.ts",
+    "test:web": "node --import tsx --test server/*.test.ts web/*.test.ts",
+    "test:browser": "node scripts/test-browser.mjs"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.535",
     "@remotion/cli": "4.0.535",
+    "@remotion/player": "4.0.535",
     "@remotion/renderer": "4.0.535",
+    "express": "5.1.0",
     "lucide-react": "0.468.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "remotion": "4.0.535",
+    "vite": "6.4.4",
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@types/express": "5.0.3",
     "@types/node": "22.19.15",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "tsx": "4.21.0",
+    "playwright-core": "1.56.1",
+    "tsx": "4.23.15",
     "typescript": "5.9.3"
   }
 }

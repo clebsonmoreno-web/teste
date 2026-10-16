@@ -86,3 +86,52 @@ O comando valida os metadados contra o original, renderiza apenas a imagem em H.
 - `out/`: entregas MP4; `work/`: intermediários; ambos ignorados pelo Git.
 
 Não inclua filmagens confidenciais no Git. Para reproduzir um trabalho em outra máquina, transfira o original com o JSON correspondente. `package-lock.json` fixa as dependências. Verifique os termos de licença comercial do Remotion aplicáveis à sua organização antes de produção.
+
+## Editor visual no navegador
+
+A interface reutiliza `VideoEdit` e o exportador já existentes. Rode a partir de `video-editor`:
+
+```sh
+npm ci
+npm run demo  # opcional: disponibiliza o clipe técnico para teste
+npm run dev
+```
+
+Abra **http://localhost:5173** na máquina onde o servidor está executando. Para acessar um ambiente remoto, encaminhe a porta 5173 para sua máquina pela ferramenta de portas da sua plataforma, ou por SSH (`ssh -L 5173:127.0.0.1:5173 usuario@servidor`). O serviço se vincula a `127.0.0.1` por padrão; ele é uma ferramenta local, sem autenticação de múltiplos usuários. Para hospedagem com acesso protegido, siga `deploy/GUIA-HOSPEDAGEM.md`; não exponha o modo local sem senha na internet.
+
+1. Clique em **Importar vídeo** ou arraste um MP4 para a área central (até 1 GB).
+2. Reproduza o original com áudio. Use a barra e a forma de onda para localizar a fala.
+3. Clique em um ícone da biblioteca. Ele começa no ponto atual da reprodução.
+4. Arraste o ícone na prévia para posicioná-lo. Use o painel de propriedades para tamanho, cor, movimento, início e fim.
+5. Na linha do tempo, arraste o bloco para mover o intervalo ou suas extremidades para ajustar início/fim. As setas do teclado movem o bloco selecionado em um quadro. Os botões **Marcar início aqui** e **Marcar fim aqui** usam o ponto atual da reprodução.
+6. O projeto é salvo automaticamente no servidor local. **Salvar** força a gravação; **Abrir projeto salvo** permite retomar depois.
+7. Clique em **Exportar MP4** e aguarde o link **Baixar MP4**. Apenas uma exportação roda por vez.
+
+O upload é transmitido para disco e seu SHA-256 é registrado; nenhum efeito ou ícone é adicionado na importação. Sem ícones, a entrega é uma cópia byte a byte do original. Com ícones, apenas a imagem é renderizada novamente em H.264, mantendo dimensão e proporção; todas as faixas de áudio são copiadas e verificadas pelo exportador existente. O original é conferido novamente depois do render. Não é possível manter os bytes do vídeo exportado idênticos ao original ao incorporar ícones na imagem.
+
+Na prévia, o navegador toca a faixa de áudio padrão que suporta; todas as faixas são mantidas na exportação. Codecs incompatíveis com o navegador podem impedir a prévia, e áudio incompatível com MP4 faz a exportação falhar sem conversão automática. A forma de onda é extraída da primeira faixa; sua ausência não altera a fonte nem impede a exportação. Os limites de FPS variável, HDR, rotação e proporção de pixel descritos acima continuam válidos.
+
+Arquivos da interface:
+
+- `web/`: React, Player Remotion, biblioteca, prévia, linha do tempo e propriedades.
+- `server/`: API Node para importação, salvamento, exportação e download.
+- `public/originals/browser/`: uploads intactos, ignorados pelo Git.
+- `work/editor/projects/`: configurações e metadados dos projetos visuais.
+- `work/editor/exports/`: resultados de exportação; o link de download permanece disponível enquanto o processo do servidor estiver ativo.
+
+Uploads, projetos visuais e resultados persistem no disco local, sem envio ao GitHub. Guarde `public/originals/browser/` e `work/editor/projects/` juntos para backup. O arquivo de cada projeto visual contém o campo `project`, com o mesmo formato dos JSONs do fluxo por terminal.
+
+Para servir a versão compilada localmente:
+
+```sh
+npm run build:web
+npm start
+```
+
+A compilação sai em `web-dist/` (ignorada pelo Git). Validação: `npm run check`, `npm test` e `npm run test:web`. Para indicar um Chromium específico, defina `REMOTION_BROWSER_EXECUTABLE`; em Linux o servidor aproveita `/usr/bin/chromium` quando disponível. FFmpeg e FFprobe precisam continuar no PATH.
+
+Teste automatizado de ponta a ponta (com o servidor já rodando e o clipe de `npm run demo` disponível): `npm run test:browser`. Usa Chromium local, importa o clipe técnico, ajusta e arrasta um ícone, reproduz a prévia, exporta e baixa o MP4, e verifica o layout móvel. `EDITOR_URL` permite testar outra porta; `REMOTION_BROWSER_EXECUTABLE` permite escolher o executável. As capturas e o MP4 de teste ficam em `work/`.
+
+## Preparação para hospedagem de teste
+
+Configuração Docker, acesso por senha e armazenamento persistente estão em `Dockerfile`, `compose.yaml`, `server/hosting.ts` e `deploy/`. O Blueprint Render está em `../render.yaml`. O procedimento, os custos estimados e as autorizações necessárias estão em `deploy/GUIA-HOSPEDAGEM.md`. Preparar estes arquivos não publica o código nem contrata hospedagem. O modo local continua usando os diretórios e comandos anteriores.

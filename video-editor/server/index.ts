@@ -1,7 +1,7 @@
 import express from 'express';
 import {createServer as createViteServer} from 'vite';
 import {createServer} from 'node:http';
-import {createReadStream,createWriteStream,existsSync,mkdirSync,readFileSync,readdirSync,writeFileSync,rmSync,copyFileSync,openSync,readSync,closeSync} from 'node:fs';
+import {createReadStream,createWriteStream,existsSync,mkdirSync,readFileSync,readdirSync,writeFileSync,rmSync,copyFileSync,openSync,readSync,closeSync,renameSync} from 'node:fs';
 import {pipeline} from 'node:stream/promises';
 import {Transform} from 'node:stream';
 import {randomUUID,createHash} from 'node:crypto';
@@ -10,6 +10,7 @@ import path from 'node:path';
 import {projectSchema,type Project} from '../src/model';
 import {metadata,probe} from '../scripts/lib';
 import {validateUpdate} from './project';
+import {ChunkUploads,UploadError} from './uploads';
 import {accessConfig,protectEditor,prepareStorage,isAllowedOrigin} from './hosting';
 type RecordData={id:string;name:string;sha256:string;audioTracks:number;project:Project;peaks:number[]};
 type Job={id:string;projectId:string;status:'running'|'done'|'error';error?:string;audioVerified?:boolean;originalUnchanged?:boolean};
@@ -37,6 +38,25 @@ app.use(express.json({limit:'2mb'}));
 app.get('/api/health',(_req,res)=>res.json({ok:true}));
 app.get('/api/projects',(_req,res)=>res.json(readdirSync(`${store}/projects`).filter(f=>f.endsWith('.json')).map(f=>{const r:RecordData=JSON.parse(readFileSync(`${store}/projects/${f}`,'utf8'));return {id:r.id,name:r.name,client:r.project.client};})));
 app.get('/api/projects/:id',(req,res)=>{try{res.json(record(req.params.id));}catch{res.status(404).json({error:'Projeto não encontrado'});}});
+const uploads=new ChunkUploads(`${store}/uploads`);
+const uploadFailure=(error:unknown,res:express.Response)=>{if(!res.destroyed)res.status(error instanceof UploadError?error.status:400).json({error:error instanceof Error?error.message:'Falha no envio do vídeo.'});};
+app.post('/api/uploads',(req,res)=>{try{res.status(201).json(uploads.create(req.body?.name,req.body?.size));}catch(error){uploadFailure(error,res);}});
+app.get('/api/uploads/:id',(req,res)=>{try{res.json(uploads.status(req.params.id));}catch(error){uploadFailure(error,res);}});
+app.post('/api/uploads/:id/chunk',async(req,res)=>{try{
+ if(!req.is('application/octet-stream'))throw new UploadError('Formato do bloco inválido.',415);
+ res.json(await uploads.append(req.params.id,Number(req.query.offset),String(req.headers['x-chunk-sha256']||''),req));
+}catch(error){uploadFailure(error,res);}});
+app.delete('/api/uploads/:id',(req,res)=>{try{uploads.cancel(req.params.id);res.json({ok:true});}catch(error){uploadFailure(error,res);}});
+app.post('/api/uploads/:id/complete',async(req,res)=>{
+ let file:string|undefined,claimed=false;
+ try{
+  const upload=uploads.claim(req.params.id);claimed=true;const source=`originals/browser/${upload.id}.mp4`;file=path.resolve('public',source);renameSync(upload.file,file);
+  const header=Buffer.alloc(12),fd=openSync(file,'r');try{readSync(fd,header,0,12,0);}finally{closeSync(fd);}if(header.toString('ascii',4,8)!=='ftyp')throw new UploadError('O arquivo não é um MP4 válido.');
+  const meta=metadata(file),info=probe(file);
+  const r:RecordData={id:upload.id,name:upload.name,sha256:await digest(file),audioTracks:info.streams.filter((s:any)=>s.codec_type==='audio').length,project:projectSchema.parse({client:'Meu projeto',source,...meta,icons:[]}),peaks:await waveform(file,meta.durationSeconds,Number(info.streams.find((s:any)=>s.codec_type==='audio')?.start_time||0)-Number(info.format.start_time||0))};
+  save(r);uploads.remove(upload.id);res.status(201).json(r);
+ }catch(error){if(claimed){uploads.remove(req.params.id);if(file)rmSync(file,{force:true});}uploadFailure(error,res);}
+});
 app.post('/api/import',async(req,res)=>{
  const id=randomUUID(),source=`originals/browser/${id}.mp4`,file=path.resolve('public',source);
  try{

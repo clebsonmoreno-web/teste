@@ -135,3 +135,9 @@ Teste automatizado de ponta a ponta (com o servidor já rodando e o clipe de `np
 ## Preparação para hospedagem de teste
 
 Configuração Docker, acesso por senha e armazenamento persistente estão em `Dockerfile`, `compose.yaml`, `server/hosting.ts` e `deploy/`. O Blueprint Render está em `../render.yaml`. O procedimento, os custos estimados e as autorizações necessárias estão em `deploy/GUIA-HOSPEDAGEM.md`. Preparar estes arquivos não publica o código nem contrata hospedagem. O modo local continua usando os diretórios e comandos anteriores.
+
+### Upload pelo encaminhamento do Codespaces
+
+A interface envia os vídeos em blocos sequenciais de 512 KiB, evitando uma única requisição grande ao proxy. Cada bloco tem SHA-256 verificado no servidor; a montagem mantém os bytes do MP4 original. O limite do arquivo continua sendo 1 GB. Há progresso de envio e mensagens com o status HTTP quando o encaminhamento retorna HTML. Se uma resposta de bloco for perdida, o cliente consulta a posição recebida antes de reenviá-lo.
+
+Os blocos temporários ficam em `work/editor/uploads/` (ou no diretório persistente configurado), fora da pasta pública. Sessões incompletas não sobrevivem a um reinício e precisam ser reenviadas; originais e projetos já importados não são removidos. A rota de importação direta anterior permanece compatível, mas a interface usa o envio em blocos.

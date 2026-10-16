@@ -4,12 +4,12 @@ import {Check,Heart,Shield,Lightbulb,Film,Upload,Download,Play,Pause,SkipBack,Tr
 import {VideoEdit} from '../src/Root';
 import type {Project} from '../src/model';
 import {cueAt,formatTime,frames,moveCue,snap} from './timing';
+import {api,uploadInChunks} from './api';
 type Cue=Project['icons'][number];
 type VideoRecord={id:string;name:string;sha256:string;audioTracks:number;project:Project;peaks:number[]};
 type Job={id:string;status:'running'|'done'|'error';error?:string;originalUnchanged?:boolean};
 const glyphs={check:Check,heart:Heart,shield:Shield,lightbulb:Lightbulb};
 const labels={check:'Confirmação',heart:'Coração',shield:'Proteção',lightbulb:'Ideia'};
-async function api<T>(url:string,options?:RequestInit):Promise<T>{const r=await fetch(url,options);const data=await r.json();if(!r.ok)throw Error(data.error||'Não foi possível concluir a operação.');return data;}
 const json=(data:unknown)=>({headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
 function NumberField({label,value,min,max,step=0.01,onChange}:{label:string;value:number;min:number;max:number;step?:number;onChange:(n:number)=>void}){
  return <label className="field"><span>{label}</span><input aria-label={label} type="number" min={min} max={max} step={step} value={Number(value.toFixed(3))} onChange={e=>{if(e.target.value!==''){const n=Number(e.target.value);if(Number.isFinite(n))onChange(Math.max(min,Math.min(max,n)));}}}/></label>;
@@ -38,11 +38,11 @@ export function App(){
  const update=(next:Project)=>{setRecord(r=>r?{...r,project:next}:null);setJob(j=>j?.status==='running'?j:null);};
  const patch=(id:string,values:Partial<Cue>)=>{if(p)update({...p,icons:p.icons.map(i=>i.id===id?{...i,...values}:i)});};
  const seek=(s:number)=>{if(p)player.current?.seekTo(Math.max(0,Math.min(frames(p)-1,Math.round(s*p.fps))));};
- const upload=(file:File)=>{if(!file.name.toLowerCase().endsWith('.mp4')){setError('Selecione um arquivo .mp4.');return;}if(file.size>1024**3){setError('O limite desta prévia é 1 GB por vídeo.');return;}
+ const upload=async(file:File)=>{if(!file.name.toLowerCase().endsWith('.mp4')){setError('Selecione um arquivo .mp4.');return;}if(file.size>1024**3){setError('O limite desta prévia é 1 GB por vídeo.');return;}
   setBusy(true);setProgress(0);setError('');player.current?.pause();
-  const xhr=new XMLHttpRequest();xhr.open('POST','/api/import');xhr.setRequestHeader('Content-Type','video/mp4');xhr.setRequestHeader('X-File-Name',encodeURIComponent(file.name));xhr.upload.onprogress=e=>{if(e.lengthComputable)setProgress(Math.round(e.loaded/e.total*100));};
-  xhr.onload=()=>{setBusy(false);try{const result=JSON.parse(xhr.responseText);if(xhr.status!==201)throw Error(result.error||'Erro na importação');install(result);void refresh();}catch(e){setError(e instanceof Error?e.message:'Erro na importação');}};
-  xhr.onerror=()=>{setBusy(false);setError('A conexão foi interrompida durante a importação.');};xhr.send(file);
+  try{install(await uploadInChunks<VideoRecord>(file,setProgress));void refresh();}
+  catch(error){setError(error instanceof Error?error.message:'A conexão foi interrompida durante a importação.');}
+  finally{setBusy(false);}
  };
  const demo=async()=>{try{const r=await fetch('/originals/demo.mp4');if(!r.ok)throw Error('Clipe de demonstração indisponível. Execute npm run demo.');upload(new File([await r.blob()],'demonstracao.mp4',{type:'video/mp4'}));}catch(e){setError((e as Error).message);}};
  const openProject=async(id:string)=>{if(!id)return;try{if(record){if(saveTimer.current)clearTimeout(saveTimer.current);await persist(record);}install(await api<VideoRecord>(`/api/projects/${id}`));}catch(e){setError((e as Error).message);}};
@@ -81,7 +81,7 @@ export function App(){
        <Player key={record.id} ref={player} component={VideoEdit} inputProps={p!} durationInFrames={frames(p!)} compositionWidth={p!.width} compositionHeight={p!.height} fps={p!.fps} style={{width:'100%',height:'100%'}} controls={false} clickToPlay={false} spaceKeyToPlayOrPause={false} errorFallback={()=> <div className="player-error">O navegador não conseguiu reproduzir este MP4. Confira se o codec é compatível (H.264/AAC recomendado).</div>}/>
        <div className="selection-overlay">{p!.icons.filter(i=>frame>=Math.round(i.start*p!.fps)&&frame<Math.round(i.end*p!.fps)).map(i=><button key={i.id} aria-label={`Posicionar ${labels[i.icon]}`} className={`icon-handle ${selected===i.id?'selected':''}`} style={{left:`${i.x*100}%`,top:`${i.y*100}%`,width:`${i.size/p!.width*100}%`,height:`${i.size/p!.height*100}%`}} disabled={!editing} onPointerDown={e=>dragPosition(e,i)}><span className="corner tl"/><span className="corner tr"/><span className="corner bl"/><span className="corner br"/></button>)}</div>
       </div>}
-     {busy&&record&&<div className="loading-overlay"><Loader2 className="spin"/>Processando vídeo…</div>}
+     {busy&&record&&<div className="loading-overlay"><Loader2 className="spin"/>{progress<100?`Enviando vídeo ${progress}%`:'Preparando vídeo e áudio…'}</div>}
     </div>
     <div className="playback"><span className="audio-indicator"><Volume2 size={15}/>{record?(record.audioTracks?'Áudio original':'Sem áudio'):'Áudio preservado'}</span><div className="transport"><button disabled={!record} aria-label="Voltar ao início" onClick={()=>seek(0)}><SkipBack size={16}/></button><button disabled={!record} className="play-button" aria-label={playing?'Pausar':'Reproduzir'} onClick={()=>player.current?.toggle()}>{playing?<Pause size={17} fill="currentColor"/>:<Play size={17} fill="currentColor"/>}</button><span className="timecode">{formatTime(seconds)} <small>/ {formatTime(p?.durationSeconds||0)}</small></span></div><span className="shortcut">Espaço <span>▶ / Ⅱ</span></span></div>
     <section className="timeline"><div className="timeline-heading"><div><h2>Linha do tempo</h2><span>Ouça, marque e ajuste.</span></div><span className="timeline-count">{p?.icons.length||0} ícones</span></div>

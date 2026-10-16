@@ -1,0 +1,17 @@
+node_modules/
+work/
+out/
+public/originals/*
+!public/originals/.gitkeep
+
+# Arquivos locais, caches e credenciais
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.cache/
+.remotion/
+coverage/
+*.tsbuildinfo

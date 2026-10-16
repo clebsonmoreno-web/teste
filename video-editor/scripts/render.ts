@@ -7,6 +7,8 @@ const [config,output]=process.argv.slice(2);if(!config||!output||!output.endsWit
 if(existsSync(output))throw Error('Saída existente: escolha outro nome');
 const concurrency=Number(process.env.REMOTION_CONCURRENCY??2);
 if(!Number.isInteger(concurrency)||concurrency<1)throw Error('REMOTION_CONCURRENCY deve ser um inteiro positivo.');
+// Bound decoded-frame memory in the small Codespaces container.
+const containerRenderOptions=process.env.CODESPACES==='true'?{offthreadVideoCacheSizeInBytes:256*1024*1024,mediaCacheSizeInBytes:64*1024*1024,offthreadVideoThreads:1,disableSharedMemoryCapture:true,disallowParallelEncoding:true}:{};
 const props=load(config);const source=path.resolve('public',props.source);
 if(!source.startsWith(path.resolve('public')+path.sep))throw Error('Fonte deve estar em public/');
 const actual=metadata(source);
@@ -17,7 +19,7 @@ try{
  const serveUrl=await bundle({entryPoint:path.resolve('src/index.ts')});
  const browserExecutable=process.env.REMOTION_BROWSER_EXECUTABLE;
  const composition=await selectComposition({serveUrl,id:'VideoEdit',inputProps:props,browserExecutable});
- await renderMedia({serveUrl,composition,inputProps:props,codec:'h264',muted:true,pixelFormat:props.width%2||props.height%2?'yuv444p':'yuv420p',crf:18,outputLocation:`${temp}/video.mp4`,browserExecutable,concurrency});
+ await renderMedia({serveUrl,composition,inputProps:props,codec:'h264',muted:true,pixelFormat:props.width%2||props.height%2?'yuv444p':'yuv420p',crf:18,outputLocation:`${temp}/video.mp4`,browserExecutable,concurrency,...containerRenderOptions});
  run('ffmpeg',['-v','error','-i',`${temp}/video.mp4`,'-i',source,'-map','0:v:0','-map','1:a?','-map_metadata','1','-c','copy','-movflags','+faststart',`${temp}/final.mp4`]);
  const original=probe(source).streams.filter((s:any)=>s.codec_type==='audio');const final=probe(`${temp}/final.mp4`).streams.filter((s:any)=>s.codec_type==='audio');
  if(original.length!==final.length)throw Error('Contagem de faixas de áudio divergente');

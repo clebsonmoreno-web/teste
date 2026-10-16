@@ -6,7 +6,7 @@ RUN --mount=type=secret,id=proxy_ca \
     set --; \
     if [ -f /run/secrets/proxy_ca ]; then set -- -o Acquire::https::CaInfo=/run/secrets/proxy_ca; fi; \
     apt-get "$@" update && apt-get "$@" install -y --no-install-recommends \
-      ca-certificates chromium ffmpeg fonts-liberation tini gosu \
+      ca-certificates chromium ffmpeg fonts-liberation tini gosu git \
     && rm -rf /var/lib/apt/lists/*
 
 

@@ -1,0 +1,33 @@
+{
+  "name": "Frame — editor de vídeos",
+  "build": {
+    "dockerfile": "../video-editor/Dockerfile",
+    "context": "../video-editor",
+    "target": "base"
+  },
+  "remoteUser": "node",
+  "overrideCommand": true,
+  "hostRequirements": {
+    "cpus": 2
+  },
+  "forwardPorts": [
+    5173
+  ],
+  "portsAttributes": {
+    "5173": {
+      "label": "Abrir editor de vídeos",
+      "onAutoForward": "openBrowser",
+      "protocol": "http"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash .devcontainer/start-editor.sh",
+  "waitFor": "postStartCommand",
+  "customizations": {
+    "codespaces": {
+      "openFiles": [
+        ".devcontainer/COMECE-AQUI.md"
+      ]
+    }
+  }
+}

@@ -10,7 +10,7 @@ import path from 'node:path';
 import {projectSchema,type Project} from '../src/model';
 import {metadata,probe} from '../scripts/lib';
 import {validateUpdate} from './project';
-import {accessConfig,protectEditor,prepareStorage} from './hosting';
+import {accessConfig,protectEditor,prepareStorage,isAllowedOrigin} from './hosting';
 type RecordData={id:string;name:string;sha256:string;audioTracks:number;project:Project;peaks:number[]};
 type Job={id:string;projectId:string;status:'running'|'done'|'error';error?:string;audioVerified?:boolean;originalUnchanged?:boolean};
 const hosting=accessConfig();
@@ -32,7 +32,7 @@ const waveform=(file:string,duration:number,offset:number)=>new Promise<number[]
 });
 const app=express();app.disable('x-powered-by');
 app.use(protectEditor(hosting));
-app.use('/api',(req,res,next)=>{if(req.headers.origin&&req.headers.origin!==(hosting.origin||`${req.protocol}://${req.headers.host}`)){res.status(403).json({error:'Origem não permitida'});return;}next();});
+app.use('/api',(req,res,next)=>{if(!isAllowedOrigin(req.headers.origin,hosting,`${req.protocol}://${req.headers.host}`)){res.status(403).json({error:'Origem não permitida'});return;}next();});
 app.use(express.json({limit:'2mb'}));
 app.get('/api/health',(_req,res)=>res.json({ok:true}));
 app.get('/api/projects',(_req,res)=>res.json(readdirSync(`${store}/projects`).filter(f=>f.endsWith('.json')).map(f=>{const r:RecordData=JSON.parse(readFileSync(`${store}/projects/${f}`,'utf8'));return {id:r.id,name:r.name,client:r.project.client};})));

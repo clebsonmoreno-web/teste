@@ -12,6 +12,20 @@ export function accessConfig(env:NodeJS.ProcessEnv=process.env){
  if(configured){const url=new URL(configured);if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error('APP_ORIGIN deve ser a origem HTTP(S) do editor, sem caminho ou credenciais.');origin=url.origin;}
  return {user,password,required,origin};
 }
+// Codespaces may forward the browser Origin as the tunnel's local loopback URL.
+// Accept only this editor port, and only in Codespaces; never arbitrary domains.
+export function isAllowedOrigin(received:string|undefined,config:ReturnType<typeof accessConfig>,localOrigin:string,env:NodeJS.ProcessEnv=process.env){
+ if(!received)return true;
+ const allowed=new Set([config.origin||localOrigin]);
+ if(env.CODESPACES==='true'){
+  const port=env.PORT||'5173';
+  if(/^\d+$/.test(port)){
+   allowed.add(`http://localhost:${port}`);
+   allowed.add(`http://127.0.0.1:${port}`);
+  }
+ }
+ return allowed.has(received);
+}
 const equal=(a:string,b:string)=>timingSafeEqual(createHash('sha256').update(a).digest(),createHash('sha256').update(b).digest());
 export function protectEditor(config:ReturnType<typeof accessConfig>):RequestHandler{
  return (req,res,next)=>{

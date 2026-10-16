@@ -27,7 +27,19 @@ log_file="work/codespaces-server.log"
 if [[ -f "$pid_file" ]]; then
   editor_pid="$(cat "$pid_file")"
   if [[ "$editor_pid" =~ ^[0-9]+$ ]] && kill -0 "$editor_pid" 2>/dev/null; then
-    if node -e 'fetch("http://127.0.0.1:"+process.env.PORT+"/api/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'; then
+    if [[ "${1:-}" == '--restart' ]]; then
+      # Stop only our own Node server in this workspace, never a reused PID.
+      if node -e 'const fs=require("fs"),id=process.argv[1];try{const args=fs.readFileSync("/proc/"+id+"/cmdline","utf8").split("\0");process.exit(args.includes("server/index.ts")&&fs.realpathSync("/proc/"+id+"/cwd")===process.cwd()?0:1)}catch{process.exit(1)}' "$editor_pid"; then
+        kill "$editor_pid"
+        for attempt in {1..20}; do
+          if ! node -e 'fetch("http://127.0.0.1:"+process.env.PORT+"/api/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'; then break; fi
+          sleep 1
+        done
+      else
+        echo 'O PID salvo não pertence a este editor. Nenhum processo foi encerrado.' >&2
+        exit 1
+      fi
+    elif node -e 'fetch("http://127.0.0.1:"+process.env.PORT+"/api/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'; then
       echo "Editor pronto: http://localhost:${PORT}"
       exit 0
     fi

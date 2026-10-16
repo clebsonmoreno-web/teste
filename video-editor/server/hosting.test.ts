@@ -4,7 +4,7 @@ import express from 'express';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {accessConfig,protectEditor,prepareStorage} from './hosting';
+import {accessConfig,protectEditor,prepareStorage,isAllowedOrigin} from './hosting';
 test('hospedagem exige credenciais completas e senha forte; execução local permanece igual',()=>{
  assert.equal(accessConfig({}).user,'');
  assert.throws(()=>accessConfig({AUTH_REQUIRED:'true'}));
@@ -35,4 +35,12 @@ test('disco persistente mantém os arquivos e nunca substitui uploads existentes
   const other=path.join(root,'other');mkdirSync(path.join(other,'public/originals/browser'),{recursive:true});writeFileSync(path.join(other,'public/originals/browser/existing.mp4'),'do not change');
   assert.throws(()=>prepareStorage(data,other),/Não será substituído/);assert.equal(readFileSync(path.join(other,'public/originals/browser/existing.mp4'),'utf8'),'do not change');
  }finally{rmSync(root,{recursive:true,force:true});}
+});
+
+test('Codespaces aceita a origem externa e o loopback do proxy sem liberar outros sites ou portas',()=>{
+ const config=accessConfig({APP_ORIGIN:'https://my-editor-5173.app.github.dev'});
+ const env={CODESPACES:'true',PORT:'5173'};
+ for(const origin of [config.origin,'http://localhost:5173','http://127.0.0.1:5173',undefined])assert.equal(isAllowedOrigin(origin,config,'http://localhost:5173',env),true);
+ for(const origin of ['https://evil.invalid','https://other-editor-5173.app.github.dev','http://localhost:5000','null'])assert.equal(isAllowedOrigin(origin,config,'http://localhost:5173',env),false);
+ assert.equal(isAllowedOrigin('http://localhost:5173',config,'http://localhost:5173',{}),false);
 });
